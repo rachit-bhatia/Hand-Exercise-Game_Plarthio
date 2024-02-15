@@ -4,15 +4,7 @@ class ColorCatchHandler {
     private var currentRotationAngle: Double = 0
     private var trayAngleScheduler: Timer?
     
-    private let colorArray: [Color]
-    private let coinFallDuration: Double
-    @Binding private var currentCoinColor: Color
-    
-    init(icolorArray: [Color], icurrentCoinColor: Binding<Color>, icoinFallDuration: Double) {
-        colorArray = icolorArray
-        _currentCoinColor = icurrentCoinColor
-        coinFallDuration = icoinFallDuration
-    }
+    init() {}
     
     //keeps record of the angle in rotation through a timer
     func recordRotationAngle(_ isClockwise: Bool) {
@@ -35,17 +27,6 @@ class ColorCatchHandler {
     
     func getCurrentAngle() -> Double {
         return self.currentRotationAngle
-    }
-    
-    func changeCoinColor() {
-        let coinColorScheduler = Timer.scheduledTimer(withTimeInterval: coinFallDuration, repeats: true) { _ in
-
-            self.currentCoinColor = self.colorArray.randomElement()!
-            print("Coin Color: \(self.currentCoinColor)")
-            print("Random Color: \(self.colorArray.randomElement()!)")
-            print("")
-        }
-        coinColorScheduler.fire()
     }
 }
 

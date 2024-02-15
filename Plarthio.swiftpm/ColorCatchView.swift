@@ -19,9 +19,7 @@ struct ColorCatchView: View {
     
     init () {
         self.currentCoinColor = colorArray.randomElement()!
-        self.colorCatchHandler = ColorCatchHandler(icolorArray: colorArray, 
-                                                   icurrentCoinColor: $currentCoinColor, 
-                                                   icoinFallDuration: coinFallDuration)
+        self.colorCatchHandler = ColorCatchHandler()
     }
 
     var body: some View{
@@ -58,7 +56,7 @@ struct ColorCatchView: View {
                             self.coinYOffset = 350
                         }
                         
-                        Timer.scheduledTimer(withTimeInterval: coinFallDuration + 0.05, repeats: true) { _ in
+                        Timer.scheduledTimer(withTimeInterval: coinFallDuration + 0.03, repeats: true) { _ in
                             withAnimation(.easeIn(duration: 0.2)) {
                                 self.currentCoinColor = self.colorArray.randomElement()!
                             }
