@@ -17,7 +17,7 @@ struct CameraFeedView: View {
         else {
             ZStack {
                 Color.gray
-                Text("Unable to access device camera. Please review camera permissions")
+                Text("Unable to access device camera")
                     .font(.system (size: 22))
             }
         }

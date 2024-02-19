@@ -4,7 +4,13 @@ class ColorCatchHandler {
     private var currentRotationAngle: Double = 0
     private var trayAngleScheduler: Timer?
     
-    init() {}
+    private let colorArray: [Color]
+    private let colorAngleDict: [Color:Double]
+    
+    init(initColorArray: [Color], initColorAngleDict: [Color:Double]) {
+        self.colorArray = initColorArray
+        self.colorAngleDict = initColorAngleDict
+    }
     
     //keeps record of the angle in rotation through a timer
     func recordRotationAngle(_ isClockwise: Bool) {
@@ -27,6 +33,29 @@ class ColorCatchHandler {
     
     func getCurrentAngle() -> Double {
         return self.currentRotationAngle
+    }
+    
+    //check if correct color is caught in the tray
+    func checkIfScored(_ currentCoinColor: Color) -> Bool {
+        var factor = Int(self.currentRotationAngle/360)
+        if self.currentRotationAngle < 0 && factor == 0 {
+            factor = -1  //convert angles between -360 and 0 to positive
+        }
+        
+        //convert angle to be in the range 0-360
+        let currentNormalisedAngle: CGFloat = self.currentRotationAngle - Double(factor*360)
+
+        var currentCoinColorPosition = self.colorAngleDict[currentCoinColor]! + currentNormalisedAngle
+        if currentCoinColorPosition > 360 {
+            currentCoinColorPosition -= 360
+        }
+        
+        //check if coin is caught in the -30 to 30 degree range
+        if (currentCoinColorPosition >= 0 && currentCoinColorPosition <= 30) || (currentCoinColorPosition >= 330 && currentCoinColorPosition <= 360) {
+            return true
+        } else {
+            return false
+        }
     }
 }
 
