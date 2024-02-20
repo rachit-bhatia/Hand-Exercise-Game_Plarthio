@@ -11,7 +11,8 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     
     private var gameSpeed: CGFloat = 10
     private var playerScore: Int = 0
-    private var storedCurrentTime: Double = 0
+    private var storedCurrentScoreTime: Double = 0
+    private var storedCurrentSpawnTime: Double = 0
     
     private let floorCategoryMask: UInt32 = 0b0001
     private let moverCategoryMask: UInt32 = 0b0010
@@ -36,10 +37,10 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         
         self.createGameFloor()
         self.createMover()
-//        self.createLandObstacle()
+        self.createLandObstacle()
         self.createAirObstacle()
         self.createScoreCounter()
-        self.showEndGameMessage()  //adding endGameMessage here so removeFromParent takes action later 
+        self.showEndGameMessage() 
         
         addActionButtons()
     }
@@ -47,23 +48,30 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     override func update(_ currentTime: CFTimeInterval) {
         self.setGameFloorInMotion()
         
-        //adding end game message only when gameSpeed<=0 
-//        if gameSpeed > 0 {
-//            endGameBackground.removeFromParent() 
-//            restartButton.removeFromParent()
-//
-//            DispatchQueue.main.async {
-//                self.addChild(self.endGameBackground)
-//                self.addChild(self.restartButton)
-//            }
-//        }
-//        
+        //showing end game message on the scene only when gameSpeed<=0 
+        if gameSpeed > 0 {
+            endGameBackground.position.y = (self.scene?.size.height)! * 3
+            restartButton.position.y = (self.scene?.size.height)! * 3
+                   
+            DispatchQueue.main.async {
+                self.endGameBackground.position.y = (self.scene?.size.height)! / 2
+                self.restartButton.position.y = self.endGameBackground.position.y - 100
+            }
+        }
         
-        if (gameSpeed > 0) && (currentTime - storedCurrentTime >= 0.5) {
+        if (gameSpeed > 0) && (currentTime - storedCurrentScoreTime >= 0.5) {
             scoreCounter.text = "Score: \(playerScore)"
             playerScore += 1
-            storedCurrentTime = currentTime
+            storedCurrentScoreTime = currentTime
         }
+        
+//        if (gameSpeed > 0) && (currentTime - storedCurrentSpawnTime >= 4) {
+//            if (Int.random(in: 0...10) < 7) {
+//                createLandObstacle()
+//            } else {
+//                createAirObstacle()
+//            }
+//        }
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -87,9 +95,10 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     }
     
     func restartGame() {
-        storedCurrentTime = 0
+        storedCurrentScoreTime = 0
         playerScore = 0
         scoreCounter.text = "Score: 0"
+        storedCurrentSpawnTime = 0
         gameFloor.removeAllChildren()
         
         moverNode.removeAllActions()
@@ -115,6 +124,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
             
             gameFloor.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: (gameFloor.frame.size.width), height: 1))
             gameFloor.physicsBody?.isDynamic = false
+            gameFloor.physicsBody?.restitution = 0
             gameFloor.physicsBody?.categoryBitMask = floorCategoryMask
             
             self.addChild(gameFloor)
@@ -250,7 +260,9 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         restartButton.zPosition = .greatestFiniteMagnitude
         
         restartButton.addChild(restartButtonText)
-        endGameBackground.addChild(endGameMessage)
+        endGameBackground?.addChild(endGameMessage)
+        self.addChild(self.endGameBackground)
+        self.addChild(self.restartButton)
     }
     
     
