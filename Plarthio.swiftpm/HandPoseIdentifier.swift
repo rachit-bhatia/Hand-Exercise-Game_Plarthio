@@ -2,7 +2,7 @@ import Vision
 
 class HandPoseIdentifier {
     private let handPoseRequest = VNDetectHumanHandPoseRequest()
-//    private let handPoseDetectionModel = HandPoseDetectionModel()
+    private let handPoseDetectionModel = FistPalmHandPoseClassifier()
 
     init () {
         self.handPoseRequest.maximumHandCount = 1
@@ -12,7 +12,7 @@ class HandPoseIdentifier {
         return self.handPoseRequest
     }
     
-//    func getModel() -> HandPoseDetectionModel(){
-//        return self.handPoseDetectionModel
-//    }
+    func getModel() -> FistPalmHandPoseClassifier {
+        return self.handPoseDetectionModel
+    }
 }
