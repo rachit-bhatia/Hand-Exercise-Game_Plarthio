@@ -12,10 +12,12 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     private var restartButton: SKShapeNode!
     
     private var gameSpeed: CGFloat = 10
+    private var speedIncrementPoint: Int = 100
     private var playerScore: Int = 0
+    private var scoreIncrementInterval: Double = 0.5
     private var storedCurrentScoreTime: Double = 0
     private var storedCurrentSpawnTime: Double = 0
-    private var obstacleInterval: Double = 0
+    private var obstacleInterval: Double = 1
     
     private let floorCategoryMask: UInt32 = 0b0001
     private let moverCategoryMask: UInt32 = 0b0010
@@ -40,8 +42,6 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         
         self.createGameFloor()
         self.createMover()
-//        self.createLandObstacle()
-//        self.createAirObstacle()
         self.createScoreCounter()
         self.showEndGameMessage() 
         
@@ -62,15 +62,22 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
                 self.restartButton.position.y = self.endGameBackground.position.y - 100
             }
             
+            //increase speed every after every +100 score 
+            if (speedIncrementPoint - playerScore) <= 0 && scoreIncrementInterval > 0 {
+                gameSpeed += 2
+                scoreIncrementInterval -= 0.1
+                speedIncrementPoint += 100
+            }
+            
             //increment score every 0.5 seconds
-            if (currentTime - storedCurrentScoreTime) >= 0.5 {
+            if (currentTime - storedCurrentScoreTime) >= scoreIncrementInterval {
                 scoreCounter.text = "Score: \(playerScore)"
                 playerScore += 1
                 storedCurrentScoreTime = currentTime
             }
             
             if (currentTime - storedCurrentSpawnTime) >= obstacleInterval {
-                obstacleInterval = Double.random(in: 2.5...4)  //randomising interval between obstacles
+                obstacleInterval = (Double.random(in: 2.5...3.6) * 10).rounded(.down) / 10 //randomising interval between obstacles
                 
                 if (Int.random(in: 1...10) < 6) {
                     createLandObstacle()
@@ -78,12 +85,6 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
                 else {
                     createAirObstacle()
                 }
-                
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                let currentTime1 = Date()
-                let formattedTime = dateFormatter.string(from: currentTime1)
-                print("Current system time:", formattedTime)
                 
                 storedCurrentSpawnTime = currentTime
             }
@@ -109,9 +110,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
             gameSpeed = 0
             
             for obstacleNode in self.children {
-                if obstacleNode.name == "signboard" || obstacleNode.name == "air_balloon"{
-                    print(obstacleNode)
-                    print ("")
+                if obstacleNode.name == "signboard" || obstacleNode.name == "air_balloon" {
                     obstacleNode.removeAllActions()
                 }
             } 
@@ -119,10 +118,6 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     }
     
     func restartGame() {
-        storedCurrentScoreTime = 0
-        playerScore = 0
-        scoreCounter.text = "Score: 0"
-        storedCurrentSpawnTime = 0
         gameFloor.removeAllChildren()
         moverNode.removeAllActions()
         moverNode.removeFromParent()
@@ -133,6 +128,13 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
             }
         }
         createMover()
+        
+        storedCurrentScoreTime = 0
+        playerScore = 0
+        scoreCounter.text = "Score: 0"
+        storedCurrentSpawnTime = 0
+        scoreIncrementInterval = 0.5
+        speedIncrementPoint = 100
         gameSpeed = 10
         
         //TODO: remove this line:
