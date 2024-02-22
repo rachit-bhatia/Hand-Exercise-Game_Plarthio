@@ -4,6 +4,8 @@ import SwiftUI
 class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     private var gameFloor: SKSpriteNode!
     private var moverNode: SKShapeNode!
+    private var signboardNode: SKSpriteNode!
+    private var airBalloonNode: SKSpriteNode!
     private var scoreCounter: SKLabelNode!
     private var screenSize: CGSize!
     private var endGameBackground: SKShapeNode!
@@ -13,6 +15,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     private var playerScore: Int = 0
     private var storedCurrentScoreTime: Double = 0
     private var storedCurrentSpawnTime: Double = 0
+    private var obstacleInterval: Double = 0
     
     private let floorCategoryMask: UInt32 = 0b0001
     private let moverCategoryMask: UInt32 = 0b0010
@@ -37,8 +40,8 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         
         self.createGameFloor()
         self.createMover()
-        self.createLandObstacle()
-        self.createAirObstacle()
+//        self.createLandObstacle()
+//        self.createAirObstacle()
         self.createScoreCounter()
         self.showEndGameMessage() 
         
@@ -48,30 +51,43 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     override func update(_ currentTime: CFTimeInterval) {
         self.setGameFloorInMotion()
         
-        //showing end game message on the scene only when gameSpeed<=0 
+       
         if gameSpeed > 0 {
             endGameBackground.position.y = (self.scene?.size.height)! * 3
             restartButton.position.y = (self.scene?.size.height)! * 3
-                   
+            
+            //showing end game message on the scene only when gameSpeed<=0 
             DispatchQueue.main.async {
                 self.endGameBackground.position.y = (self.scene?.size.height)! / 2
                 self.restartButton.position.y = self.endGameBackground.position.y - 100
             }
+            
+            //increment score every 0.5 seconds
+            if (currentTime - storedCurrentScoreTime) >= 0.5 {
+                scoreCounter.text = "Score: \(playerScore)"
+                playerScore += 1
+                storedCurrentScoreTime = currentTime
+            }
+            
+            if (currentTime - storedCurrentSpawnTime) >= obstacleInterval {
+                obstacleInterval = Double.random(in: 2.5...4)  //randomising interval between obstacles
+                
+                if (Int.random(in: 1...10) < 6) {
+                    createLandObstacle()
+                } 
+                else {
+                    createAirObstacle()
+                }
+                
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                let currentTime1 = Date()
+                let formattedTime = dateFormatter.string(from: currentTime1)
+                print("Current system time:", formattedTime)
+                
+                storedCurrentSpawnTime = currentTime
+            }
         }
-        
-        if (gameSpeed > 0) && (currentTime - storedCurrentScoreTime >= 0.5) {
-            scoreCounter.text = "Score: \(playerScore)"
-            playerScore += 1
-            storedCurrentScoreTime = currentTime
-        }
-        
-//        if (gameSpeed > 0) && (currentTime - storedCurrentSpawnTime >= 4) {
-//            if (Int.random(in: 0...10) < 7) {
-//                createLandObstacle()
-//            } else {
-//                createAirObstacle()
-//            }
-//        }
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -91,6 +107,14 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     func didBegin(_ physicalContact: SKPhysicsContact) {
         if (physicalContact.bodyA.categoryBitMask == signboardCategoryMask) || (physicalContact.bodyB.categoryBitMask == signboardCategoryMask) || (physicalContact.bodyA.categoryBitMask == airBalloonCategoryMask) || (physicalContact.bodyB.categoryBitMask == airBalloonCategoryMask) {
             gameSpeed = 0
+            
+            for obstacleNode in self.children {
+                if obstacleNode.name == "signboard" || obstacleNode.name == "air_balloon"{
+                    print(obstacleNode)
+                    print ("")
+                    obstacleNode.removeAllActions()
+                }
+            } 
         }
     }
     
@@ -100,16 +124,19 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         scoreCounter.text = "Score: 0"
         storedCurrentSpawnTime = 0
         gameFloor.removeAllChildren()
-        
         moverNode.removeAllActions()
         moverNode.removeFromParent()
+        
+        for childNode in self.children {
+            if (childNode.name == "signboard") || (childNode.name == "air_balloon") {
+                childNode.removeFromParent()
+            }
+        }
         createMover()
         gameSpeed = 10
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-            self?.createLandObstacle()
-            self?.createAirObstacle()
-        }
+        //TODO: remove this line:
+        addActionButtons()
     }
  
     
@@ -118,7 +145,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         for i in 0...2 {
             self.gameFloor = SKSpriteNode(imageNamed: "brownFloor")
             gameFloor.name = "game_floor"
-            gameFloor.size = CGSize(width: (self.scene?.size.width)!, height: 300)
+            gameFloor.size = CGSize(width: self.frame.size.width, height: 300)
             gameFloor.anchorPoint = CGPoint(x: 0, y: 1)
             gameFloor.position = CGPoint(x: CGFloat(i) * (gameFloor.size.width), y: ((self.scene?.size.height)!/4))
             
@@ -134,8 +161,8 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     private func setGameFloorInMotion() {
         self.enumerateChildNodes(withName: "game_floor", using: ({ (floorNode, error) in
             floorNode.position.x -= self.gameSpeed
-            if floorNode.position.x < -((self.scene?.size.width)!) {
-                floorNode.position.x += (self.scene?.size.width)! * 2  //reposition to after the next 2 nodes
+            if floorNode.position.x < -self.frame.size.width {
+                floorNode.position.x += self.frame.size.width * 2  //reposition to after the next 2 nodes
             }
         }))
     }
@@ -162,43 +189,78 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         self.addChild(moverNode)
     } 
     
+    
     private func createLandObstacle() {
-        let signboardImage = UIImage(named: "signboard")
-        let signboardNodeTexture = SKTexture(image: signboardImage!)
-        let signboardNode = SKSpriteNode(texture: signboardNodeTexture)
         
-        signboardNode.size = CGSize(width: 150, height: 170)
-        signboardNode.position = CGPoint(x: 0, y: signboardNode.size.height/2)
-        signboardNode.zPosition = moverNode.zPosition + 1
-        
-        signboardNode.physicsBody = SKPhysicsBody(texture: signboardNodeTexture, size: signboardNode.size)
-        signboardNode.physicsBody?.usesPreciseCollisionDetection = true
-  
-        signboardNode.physicsBody?.categoryBitMask = signboardCategoryMask
-        signboardNode.physicsBody?.collisionBitMask = floorCategoryMask
-        signboardNode.physicsBody?.contactTestBitMask = moverCategoryMask
-        
-        gameFloor.addChild(signboardNode)
+        DispatchQueue.global().async { [self] in 
+            let signboardImage = UIImage(named: "signboard")
+            let signboardNodeTexture = SKTexture(image: signboardImage!)
+            self.signboardNode = SKSpriteNode(texture: signboardNodeTexture)
+            signboardNode.name = "signboard"
+            
+            signboardNode.size = CGSize(width: 150, height: 170)
+            let initialX = gameFloor.size.width + (2 * signboardNode.size.width)
+            let yPos = gameFloor.size.height + 60
+            let offScreenDistance = -initialX - (2 * signboardNode.size.width)
+            let offScreenDuration = -offScreenDistance / (gameSpeed * 60)  //multiply speed*60 because 60FPS
+            
+            signboardNode.position = CGPoint(x: initialX, y: yPos)
+            signboardNode.zPosition = moverNode.zPosition + 1
+            
+            signboardNode.physicsBody = SKPhysicsBody(texture: signboardNodeTexture, size: signboardNode.size)
+            signboardNode.physicsBody?.usesPreciseCollisionDetection = true
+            signboardNode.physicsBody?.affectedByGravity = false
+            signboardNode.physicsBody?.allowsRotation = false 
+            
+            signboardNode.physicsBody?.categoryBitMask = signboardCategoryMask
+            signboardNode.physicsBody?.collisionBitMask = floorCategoryMask
+            signboardNode.physicsBody?.contactTestBitMask = moverCategoryMask
+            
+            addAndMoveObstacle(distance: offScreenDistance, duration: offScreenDuration, obstacleNode: signboardNode)
+        }
     }
     
+    
     private func createAirObstacle() {
-        let airBalloonImage = UIImage(named: "hotAirBalloon")
-        let airBalloonTexture = SKTexture(image: airBalloonImage!)
-        let airBalloonNode = SKSpriteNode(texture: airBalloonTexture)
         
-        airBalloonNode.size = CGSize(width: 200, height: 250)
-        airBalloonNode.position = CGPoint(x: 0, y: airBalloonNode.size.height*1.5)
-        airBalloonNode.zPosition = moverNode.zPosition + 2
-        
-        airBalloonNode.physicsBody = SKPhysicsBody(texture: airBalloonTexture, size: airBalloonNode.size)
-        airBalloonNode.physicsBody?.usesPreciseCollisionDetection = true
-        airBalloonNode.physicsBody?.affectedByGravity = false
-        
-        airBalloonNode.physicsBody?.categoryBitMask = airBalloonCategoryMask
-        airBalloonNode.physicsBody?.collisionBitMask = floorCategoryMask
-        airBalloonNode.physicsBody?.contactTestBitMask = moverCategoryMask
-        
-        gameFloor.addChild(airBalloonNode)
+        DispatchQueue.global().async { [self] in 
+            let airBalloonImage = UIImage(named: "hotAirBalloon")
+            let airBalloonTexture = SKTexture(image: airBalloonImage!)
+            self.airBalloonNode = SKSpriteNode(texture: airBalloonTexture)
+            airBalloonNode.name = "air_balloon"
+            
+            airBalloonNode.size = CGSize(width: 200, height: 250)
+            let initialX = gameFloor.size.width + (2 * airBalloonNode.size.width) + 100
+            let yPos = gameFloor.size.height + (airBalloonNode.size.height * 1.5)
+            let offScreenDistance = -initialX - (2 * airBalloonNode.size.width)
+            let offScreenDuration = -offScreenDistance / (gameSpeed * 60) 
+            
+            airBalloonNode.position = CGPoint(x: initialX, y: yPos)
+            airBalloonNode.zPosition = moverNode.zPosition + 1
+            
+            airBalloonNode.physicsBody = SKPhysicsBody(texture: airBalloonTexture, size: airBalloonNode.size)
+            airBalloonNode.physicsBody?.usesPreciseCollisionDetection = true
+            airBalloonNode.physicsBody?.affectedByGravity = false
+            airBalloonNode.physicsBody?.allowsRotation = false 
+            
+            airBalloonNode.physicsBody?.categoryBitMask = airBalloonCategoryMask
+            airBalloonNode.physicsBody?.collisionBitMask = floorCategoryMask
+            airBalloonNode.physicsBody?.contactTestBitMask = moverCategoryMask
+            
+            addAndMoveObstacle(distance: offScreenDistance, duration: offScreenDuration, obstacleNode: airBalloonNode)
+        }
+    }
+    
+    //add obstacle node to scene and enable its movement
+    private func addAndMoveObstacle(distance: CGFloat, duration: TimeInterval, obstacleNode: SKSpriteNode) {
+        DispatchQueue.main.async { [self] in
+            self.addChild(obstacleNode)
+            
+            let movingAction = SKAction.moveBy(x: distance, y: 0, duration: duration)
+            let movingSequence = SKAction.sequence([movingAction, SKAction.removeFromParent()])
+            
+            obstacleNode.run(movingSequence)
+        }
     }
     
     private func createScoreCounter() {
