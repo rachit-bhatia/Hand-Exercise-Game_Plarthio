@@ -9,6 +9,9 @@ class CameraFeedHandler: NSObject, ObservableObject {
     private let captureQueue = DispatchQueue(label: "avCaptureQueue")
     private let evalContext = CIContext()
     
+    private var frameCount = 0
+    private let handPoseDetectionInterval = 60  //detect hand poses only after 60 frames
+    
     public override init () {
         super.init()
         self.isAccessGiven()
@@ -87,32 +90,39 @@ extension CameraFeedHandler: AVCaptureVideoDataOutputSampleBufferDelegate {
                                         orientation: .upMirrored, 
                                         options: [:] 
                                      )
-        let handPoseIdentifier = HandPoseIdentifier()
-        let handPoseRequest = handPoseIdentifier.getHandPoseRequest()
-//        let handPoseDetectionModel = handPoseIdentifier.getModel()
         
-        do { 
-            try handPoseRequestHandler.perform([handPoseRequest]) 
+        frameCount += 1
+        
+        if frameCount % handPoseDetectionInterval == 0 {
+            let handPoseIdentifier = HandPoseIdentifier()
+            let handPoseRequest = handPoseIdentifier.getHandPoseRequest()
+            let handPoseDetectionModel = handPoseIdentifier.getModel()
             
-            if let obtainedResults = handPoseRequest.results {
-                if !obtainedResults.isEmpty {
-                    
-                    let handPoseObservation = obtainedResults[0]
-                    
-                    if let handPoseKeypointsMultiArray = try? handPoseObservation.keypointsMultiArray() {
-//                        let handPosePrediction = try handPoseDetectionModel.prediction(poses: handPoseKeypointsMultiArray)
-//                        let confidenceScore = handPosePrediction.labelProbabilities[handPosePrediction.label]!
-//                        
-//                        if confidenceScore > 0.9 {
-//                            print(handPosePrediction.label)
-//                        }
+            do { 
+                try handPoseRequestHandler.perform([handPoseRequest]) 
+                
+                if let obtainedResults = handPoseRequest.results {
+                    if !obtainedResults.isEmpty {
+                        
+                        let handPoseObservation = obtainedResults[0]
+                        
+                        if let handPoseKeypointsMultiArray = try? handPoseObservation.keypointsMultiArray() {
+                            let handPosePrediction = try handPoseDetectionModel.prediction(poses: handPoseKeypointsMultiArray)
+                            let confidenceScore = handPosePrediction.labelProbabilities[handPosePrediction.label]!
+                            
+                            if confidenceScore > 0.9 {
+                                print(handPosePrediction.label)
+                            } else {
+                                print("Hand pose not detected")
+                            }
+                        }
                     }
                 }
-            }
-            
-        } catch { 
-            print("Hand Pose Detection Failed: \(error)") 
-        } 
+                
+            } catch { 
+                print("Hand Pose Detection Failed: \(error)") 
+          } 
+        }
     }
     
     //convert image from sample buffer into CGImage
