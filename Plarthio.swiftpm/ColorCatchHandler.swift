@@ -50,8 +50,8 @@ class ColorCatchHandler {
             currentCoinColorPosition -= 360
         }
         
-        //check if coin is caught in the -30 to 30 degree range
-        if (currentCoinColorPosition >= 0 && currentCoinColorPosition <= 30) || (currentCoinColorPosition >= 330 && currentCoinColorPosition <= 360) {
+        //check if coin is caught in the -40 to 40 degree range
+        if (currentCoinColorPosition >= 0 && currentCoinColorPosition <= 40) || (currentCoinColorPosition >= 320 && currentCoinColorPosition <= 360) {
             return true
         } else {
             return false

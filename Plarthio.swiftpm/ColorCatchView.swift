@@ -144,10 +144,10 @@ struct ColorCatchView: View {
                 }
                 .rotationEffect(.degrees(self.trayRotationAngle))
                 .onAppear {
-//                    self.colorCatchHandler.recordRotationAngle(self.isRotatingClockwise)
-//                    withAnimation(.linear(duration: rotationDuration).repeatForever(autoreverses: false)) {
-//                        self.trayRotationAngle = 360
-//                    }
+                   self.colorCatchHandler.recordRotationAngle(self.isRotatingClockwise)
+                   withAnimation(.linear(duration: rotationDuration).repeatForever(autoreverses: false)) {
+                      self.trayRotationAngle = 360
+                   }
                 }
                 
                 Spacer()
