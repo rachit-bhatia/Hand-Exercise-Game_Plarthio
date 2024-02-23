@@ -26,9 +26,6 @@ let package = Package(
             ],
             supportedInterfaceOrientations: [
                 .portrait,
-                .landscapeRight,
-                .landscapeLeft,
-                .portraitUpsideDown(.when(deviceFamilies: [.pad]))
             ],
             capabilities: [
                 .camera(purposeString: "Plarthio needs access to the device’s front camera to record hand movements")
