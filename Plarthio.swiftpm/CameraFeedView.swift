@@ -7,18 +7,20 @@ struct CameraFeedView: View {
     
     public init (_ capturedImage: CGImage?) {
         self.capturedImage = capturedImage
-//        print ("Captured image is \(capturedImage)")
     } 
     
     var body: some View {
-        if let capturedImage {
-                Image(capturedImage, scale: 1.0, orientation: .upMirrored, label: imageLabel)
-        }
-        else {
-            ZStack {
-                Color.gray
-                Text("Unable to access device camera")
-                    .font(.system (size: 22))
+        GeometryReader { geometry in 
+            if let capturedImage {
+                Image(capturedImage, scale: 1, orientation: .upMirrored, label: imageLabel)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+            }
+            else {
+                ZStack {
+                    Color.gray
+                    Text("Unable to access device camera")
+                        .font(.system (size: 22))
+                }
             }
         }
     }

@@ -191,34 +191,34 @@ struct ColorCatchView: View {
 
                 Spacer()
                 
-                Button(action: {
-                    self.stopRecordingRotationAngle()
-                    withAnimation(.linear(duration: 0)) {
-                        self.updatedRotationAngle = self.currentRotationAngle
-                    }
-                     
-                    let fullAngle: CGFloat
-                    if self.isRotatingClockwise {
-                        fullAngle = self.updatedRotationAngle - 360
-                    } else {
-                        fullAngle = self.updatedRotationAngle + 360
-                    }
-                    
-                    withAnimation(.linear(duration: rotationDuration).repeatForever(autoreverses: false)) {
-                        self.updatedRotationAngle = fullAngle
-                    }
-                    self.isRotatingClockwise.toggle()
-                    self.recordRotationAngle(self.isRotatingClockwise)
-                }) {
-                    Text("Start")
-                        .bold()
-                        .font(.system(size: 25))
-                        .frame(width: 200)
-                        .foregroundColor(.white)
-                        .padding(.all, 10)
-                        .background(Color.pink)
-                        .cornerRadius(10)
-                }
+//                Button(action: {
+//                    self.stopRecordingRotationAngle()
+//                    withAnimation(.linear(duration: 0)) {
+//                        self.updatedRotationAngle = self.currentRotationAngle
+//                    }
+//                     
+//                    let fullAngle: CGFloat
+//                    if self.isRotatingClockwise {
+//                        fullAngle = self.updatedRotationAngle - 360
+//                    } else {
+//                        fullAngle = self.updatedRotationAngle + 360
+//                    }
+//                    
+//                    withAnimation(.linear(duration: rotationDuration).repeatForever(autoreverses: false)) {
+//                        self.updatedRotationAngle = fullAngle
+//                    }
+//                    self.isRotatingClockwise.toggle()
+//                    self.recordRotationAngle(self.isRotatingClockwise)
+//                }) {
+//                    Text("Start")
+//                        .bold()
+//                        .font(.system(size: 25))
+//                        .frame(width: 200)
+//                        .foregroundColor(.white)
+//                        .padding(.all, 10)
+//                        .background(Color.pink)
+//                        .cornerRadius(10)
+//                }
                 Spacer()
             }
         }

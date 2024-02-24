@@ -18,11 +18,14 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     private var storedCurrentScoreTime: Double = 0
     private var storedCurrentSpawnTime: Double = 0
     private var obstacleInterval: Double = 1
+    private var actionInProgress: Bool = false
     
     private let floorCategoryMask: UInt32 = 0b0001
     private let moverCategoryMask: UInt32 = 0b0010
     private let signboardCategoryMask: UInt32 = 0b0011
     private let airBalloonCategoryMask: UInt32 = 0b0100
+    
+    static var detectedHandPose: String = ""
     
     
     override init(size initScreenSize: CGSize) {
@@ -36,7 +39,8 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     
     override func didMove(to: SKView) {
         self.anchorPoint = CGPoint(x: 0, y: 0)
-        self.backgroundColor = .lightGray
+        self.backgroundColor = .clear
+        self.view?.allowsTransparency = true
         self.physicsWorld.contactDelegate = self
         self.size = screenSize
         
@@ -47,11 +51,10 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         
         addActionButtons()
     }
-    
+
     override func update(_ currentTime: CFTimeInterval) {
         self.setGameFloorInMotion()
         
-       
         if gameSpeed > 0 {
             endGameBackground.position.y = (self.scene?.size.height)! * 3
             restartButton.position.y = (self.scene?.size.height)! * 3
@@ -61,6 +64,14 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
                 self.endGameBackground.position.y = (self.scene?.size.height)! / 2
                 self.restartButton.position.y = self.endGameBackground.position.y - 100
             }
+            
+            //perform action based on detected hand pose
+            if DodgeObsScene.detectedHandPose == "open_palm" {
+                jumpMover()
+            } else if DodgeObsScene.detectedHandPose == "closed_fist" {
+                contractMover()
+            }
+            DodgeObsScene.detectedHandPose = ""
             
             //increase speed every after every +100 score 
             if (speedIncrementPoint - playerScore) <= 0 && scoreIncrementInterval > 0 {
@@ -135,6 +146,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         storedCurrentSpawnTime = 0
         scoreIncrementInterval = 0.5
         speedIncrementPoint = 100
+        actionInProgress = false
         gameSpeed = 10
         
         //TODO: remove this line:
@@ -202,7 +214,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
             
             signboardNode.size = CGSize(width: 150, height: 170)
             let initialX = gameFloor.size.width + (2 * signboardNode.size.width)
-            let yPos = gameFloor.size.height + 60
+            let yPos = gameFloor.size.height + 45
             let offScreenDistance = -initialX - (2 * signboardNode.size.width)
             let offScreenDuration = -offScreenDistance / (gameSpeed * 60)  //multiply speed*60 because 60FPS
             
@@ -279,13 +291,19 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func jumpMover() {
-        moverNode.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 1300))
+        if !actionInProgress {
+            actionInProgress = true
+            moverNode.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 1200))
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+                self.actionInProgress = false
+            }
+        }
     }
     
     private func contractMover() {
         let contractActionSequence = SKAction.sequence([SKAction.scaleY(to: 0.5, duration: 0.5),
                                                         SKAction.scaleY(to: 1, duration: 1)])
-        
         moverNode.run(contractActionSequence)
     }
     
@@ -379,7 +397,7 @@ struct DodgeObsView: View {
         GeometryReader { geometry in
 
             ZStack {
-                SpriteView(scene: DodgeObsScene(size: geometry.size))
+                SpriteView(scene: DodgeObsScene(size: geometry.size), options: [.allowsTransparency])
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .ignoresSafeArea(edges: .all)
             }

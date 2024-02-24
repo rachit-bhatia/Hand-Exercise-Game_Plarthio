@@ -1,5 +1,5 @@
 import SwiftUI
-    
+
     
 struct ContentView: View {
     @StateObject private var camViewModel = CameraFeedHandler() 
@@ -8,11 +8,10 @@ struct ContentView: View {
         if let captureFrame = camViewModel.captureFrame {
             ZStack {
                 CameraFeedView(captureFrame)
+                Color.gray.opacity(0.8)
                     .ignoresSafeArea(.all)
-                Color.gray.opacity(0.7)
+                DodgeObsView()
             }
         } else { CameraFeedView(camViewModel.captureFrame) }
     }
 }      
-
-

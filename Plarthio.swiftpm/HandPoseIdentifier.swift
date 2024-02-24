@@ -16,3 +16,8 @@ class HandPoseIdentifier {
         return self.handPoseDetectionModel
     }
 }
+
+
+class HandPoseDetection: ObservableObject {
+    @Published var detectedHandPose: String = "Background"
+}

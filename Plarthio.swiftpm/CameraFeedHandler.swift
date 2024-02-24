@@ -10,12 +10,19 @@ class CameraFeedHandler: NSObject, ObservableObject {
     private let evalContext = CIContext()
     
     private var frameCount = 0
-    private let handPoseDetectionInterval = 60  //detect hand poses only after 60 frames
+    private let handPoseDetectionInterval = 5  //detect hand poses after every 5 frames
+    
+    private let handPoseIdentifier = HandPoseIdentifier()
+    private var handPoseRequest: VNDetectHumanHandPoseRequest?
+    private var handPoseDetectionModel: FistPalmHandPoseClassifier?
     
     public override init () {
         super.init()
         self.isAccessGiven()
         self.runCaptureQueue()
+        
+        self.handPoseRequest = handPoseIdentifier.getHandPoseRequest()
+        self.handPoseDetectionModel = handPoseIdentifier.getModel()
     }
     
     //check for access to device camera
@@ -94,24 +101,25 @@ extension CameraFeedHandler: AVCaptureVideoDataOutputSampleBufferDelegate {
         frameCount += 1
         
         if frameCount % handPoseDetectionInterval == 0 {
-            let handPoseIdentifier = HandPoseIdentifier()
-            let handPoseRequest = handPoseIdentifier.getHandPoseRequest()
-            let handPoseDetectionModel = handPoseIdentifier.getModel()
-            
             do { 
-                try handPoseRequestHandler.perform([handPoseRequest]) 
+                try handPoseRequestHandler.perform([handPoseRequest!]) 
                 
-                if let obtainedResults = handPoseRequest.results {
+                if let obtainedResults = handPoseRequest!.results {
                     if !obtainedResults.isEmpty {
                         
                         let handPoseObservation = obtainedResults[0]
                         
                         if let handPoseKeypointsMultiArray = try? handPoseObservation.keypointsMultiArray() {
-                            let handPosePrediction = try handPoseDetectionModel.prediction(poses: handPoseKeypointsMultiArray)
+                            let handPosePrediction = try handPoseDetectionModel!.prediction(poses: handPoseKeypointsMultiArray)
                             let confidenceScore = handPosePrediction.labelProbabilities[handPosePrediction.label]!
                             
                             if confidenceScore > 0.9 {
-                                print(handPosePrediction.label)
+                                
+                                DispatchQueue.main.async {
+                                    ColorCatchView.detectedHandPose = handPosePrediction.label
+                                    DodgeObsScene.detectedHandPose = handPosePrediction.label
+                                    print("Detect1: \(ColorCatchView.detectedHandPose)")
+                                }
                             } else {
                                 print("Hand pose not detected")
                             }
