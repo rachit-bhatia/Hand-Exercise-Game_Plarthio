@@ -2,7 +2,8 @@ import Vision
 
 class HandPoseIdentifier {
     private let handPoseRequest = VNDetectHumanHandPoseRequest()
-    private let handPoseDetectionModel = FistPalmHandPoseClassifier()
+    let fistPalmDetectionModel = FistPalmHandPoseClassifier()
+    let rockThreeDetectionModel = RockThreeHandPoseClassifier()
 
     init () {
         self.handPoseRequest.maximumHandCount = 1
@@ -11,13 +12,4 @@ class HandPoseIdentifier {
     func getHandPoseRequest() -> VNDetectHumanHandPoseRequest{
         return self.handPoseRequest
     }
-    
-    func getModel() -> FistPalmHandPoseClassifier {
-        return self.handPoseDetectionModel
-    }
-}
-
-
-class HandPoseDetection: ObservableObject {
-    @Published var detectedHandPose: String = "Background"
 }
