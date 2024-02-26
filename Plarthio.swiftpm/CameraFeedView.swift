@@ -21,11 +21,11 @@ struct CameraFeedView: View {
                     Text("Unable to access device camera")
                         .font(.system (size: 22))
                 }
+                 .ignoresSafeArea(.all)
             }
         }
+       
     }
-    
-    
 }
    
         
