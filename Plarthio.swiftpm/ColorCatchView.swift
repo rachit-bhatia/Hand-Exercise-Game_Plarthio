@@ -2,11 +2,14 @@ import SwiftUI
 
 
 struct ColorCatchView: View {
-    private let collectorWidth: CGFloat = 100, collectorHeight: CGFloat = 100
+    private let trayWidth: CGFloat = 100, trayHeight: CGFloat = 100
     private let rotationDuration: Double = 3
-    private let fallDistance: CGFloat = 320
+    private let fallDistance: CGFloat = 330
     
     static var detectedHandPose: String = ""
+    
+    @State private var showGameComponents = false
+    @State private var instructionsPaneOffset: CGFloat = UIScreen.main.bounds.height 
     
     //color tray rotation
     @State private var isRotatingClockwise = true
@@ -15,6 +18,7 @@ struct ColorCatchView: View {
     @State private var trayAngleScheduler: Timer?
     
     //coin rotation
+    @State private var coinScheduler: Timer?
     @State private var coinRotation: CGFloat = 0
     @State private var coinYOffset: CGFloat = 0
     @State private var currentCoinColor: Color
@@ -28,7 +32,6 @@ struct ColorCatchView: View {
     //scorekeeper
     @State private var gameScore = 0
     @State private var scoreIndicatorColor = Color.black
-    private let scoreToWin = 5
     
     init () {
         self.currentCoinColor = colorArray.randomElement()!
@@ -41,9 +44,41 @@ struct ColorCatchView: View {
 
     var body: some View{
         ZStack {
-//            Color.gray
+          //  Color.gray
+            
             VStack {
-                
+                HStack {
+                    Spacer()
+                    VStack {
+                        
+                        //instructions button
+                        Button(action: {
+                            showGameComponents = false
+                        }, label: {
+                            Image(systemName: "questionmark.circle.fill")
+                                .resizable()
+                                .tint(Color.black)
+                                .frame(width: 50, height: 50)
+                                .padding(.all)
+                                .padding(.top, 40)
+                        })
+                        
+                        //restart button
+                        Button(action: { restartGame() }, label: {
+                            Image(systemName: "arrow.counterclockwise.circle.fill")
+                                .resizable()
+                                .tint(Color.black)
+                                .frame(width: 50, height: 50)
+                                .padding(.all)
+                        })
+                        .disabled(!showGameComponents)
+                    }
+                }
+                Spacer()
+            }
+            
+            
+            VStack {
                 Spacer()
                     .frame(height: 100)
                 
@@ -55,64 +90,17 @@ struct ColorCatchView: View {
                     .offset(y:30)
                     .zIndex(2)
                     .rotation3DEffect(.degrees(30), axis: (x: 1, y:0, z:0))
-                    
                 
                 //coin
                 Circle()
                     .fill(currentCoinColor) 
                     .stroke(Color.black, lineWidth: 3)
-                    .frame(width: collectorWidth-20, height: collectorHeight-20)
+                    .frame(width: trayWidth-20, height: trayHeight-20)
                     .rotation3DEffect(.degrees(coinRotation), axis: (x: 0, y:1, z:0))
                     .opacity(coinOpacity)
                     .offset(y: coinYOffset)
                     .zIndex(1)
-                    .onAppear{
-                        withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
-                            self.coinRotation = 360
-                        }
-                        
-                        withAnimation(.linear(duration: coinFallDuration).repeatForever(autoreverses: false)) {
-                            self.coinYOffset = fallDistance
-                        }
-                        
-                        Timer.scheduledTimer(withTimeInterval: coinFallDuration, repeats: true) { scoreScheduler in
-                            let isCorrectColorCaught = self.checkIfScored(self.currentCoinColor)
-                            
-                            //change score based on color catch
-                            if isCorrectColorCaught {
-                                self.gameScore += 1
-                                withAnimation(.linear(duration: 0.2)) {
-                                    self.scoreIndicatorColor = Color(red: 0, green: 0.5, blue: 0)
-                                }
-                            } else {
-                                self.gameScore -= 1
-                                withAnimation(.linear(duration: 0.2)) {
-                                    self.scoreIndicatorColor = Color(red: 1, green: 0, blue: 0)
-                                }
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1){
-                                withAnimation(.easeIn(duration: 0.2)) {
-                                    self.scoreIndicatorColor = Color.black
-                                }
-                            }
-                            
-                            //end game if winning score achieved
-                            if self.gameScore == self.scoreToWin {
-                                withAnimation(.linear(duration: 0)) {
-                                    self.coinOpacity = 0
-                                    self.coinRotation = 0
-                                    self.coinYOffset = 0
-                                    scoreScheduler.invalidate()
-                                }
-                            } 
-                            
-                            withAnimation(.easeIn(duration: 0.3)) {
-                                self.currentCoinColor = self.colorArray.randomElement()!
-                            }
-                            
-                        }
-                    }
-                
+                       
                 Spacer()
                     .frame(height: fallDistance - 100)
                 
@@ -125,56 +113,34 @@ struct ColorCatchView: View {
                     VStack {
                         Circle()
                             .fill(self.colorArray[0])
-                            .frame(width: collectorWidth, height: collectorHeight)
+                            .frame(width: trayWidth, height: trayHeight)
                         
                         HStack {
                             Circle()
                                 .fill(self.colorArray[1])
-                                .frame(width: collectorWidth, height: collectorHeight)
+                                .frame(width: trayWidth, height: trayHeight)
                             
                             Spacer()
                                 .frame(width:120)
                             
                             Circle()
                                 .fill(self.colorArray[2])
-                                .frame(width: collectorWidth, height: collectorHeight)
+                                .frame(width: trayWidth, height: trayHeight)
                         }
                         
                         Circle()
                             .fill(self.colorArray[3])
-                            .frame(width: collectorWidth, height: collectorHeight)
+                            .frame(width: trayWidth, height: trayHeight)
                     }
                 }
                 .rotationEffect(.degrees(self.updatedRotationAngle))
-                .onAppear {
-                    self.recordRotationAngle(self.isRotatingClockwise)
-                   withAnimation(.linear(duration: rotationDuration).repeatForever(autoreverses: false)) {
-                      self.updatedRotationAngle = 360
-                   }
-                }
                 .onChange(of: ColorCatchView.detectedHandPose, initial: false) {
                     
                     //run action only if hand pose and current rotation direction do not correspond 
-                    if (ColorCatchView.detectedHandPose == "open_palm" && !isRotatingClockwise) || 
-                       (ColorCatchView.detectedHandPose == "closed_fist" && isRotatingClockwise) {
+                    if (ColorCatchView.detectedHandPose == "rock" && !isRotatingClockwise) || 
+                        (ColorCatchView.detectedHandPose == "three2_sign" && isRotatingClockwise) {
                         
-                        self.stopRecordingRotationAngle()
-                        withAnimation(.linear(duration: 0)) {
-                            self.updatedRotationAngle = self.currentRotationAngle
-                        }
-                        
-                        let fullAngle: CGFloat
-                        if self.isRotatingClockwise {
-                            fullAngle = self.updatedRotationAngle - 360
-                        } else {
-                            fullAngle = self.updatedRotationAngle + 360
-                        }
-                        
-                        withAnimation(.linear(duration: rotationDuration).repeatForever(autoreverses: false)) {
-                            self.updatedRotationAngle = fullAngle
-                        }
-                        self.isRotatingClockwise.toggle()
-                        self.recordRotationAngle(self.isRotatingClockwise)
+                        changeTrayRotationDirection()
                     }
                 }
                 
@@ -188,40 +154,126 @@ struct ColorCatchView: View {
                     .background(self.scoreIndicatorColor.opacity(0.7))
                     .cornerRadius(20)
                     .animation(.linear(duration: 0), value: self.gameScore)
-
+                
                 Spacer()
                 
-//                Button(action: {
-//                    self.stopRecordingRotationAngle()
-//                    withAnimation(.linear(duration: 0)) {
-//                        self.updatedRotationAngle = self.currentRotationAngle
-//                    }
-//                     
-//                    let fullAngle: CGFloat
-//                    if self.isRotatingClockwise {
-//                        fullAngle = self.updatedRotationAngle - 360
-//                    } else {
-//                        fullAngle = self.updatedRotationAngle + 360
-//                    }
-//                    
-//                    withAnimation(.linear(duration: rotationDuration).repeatForever(autoreverses: false)) {
-//                        self.updatedRotationAngle = fullAngle
-//                    }
-//                    self.isRotatingClockwise.toggle()
-//                    self.recordRotationAngle(self.isRotatingClockwise)
-//                }) {
-//                    Text("Start")
-//                        .bold()
-//                        .font(.system(size: 25))
-//                        .frame(width: 200)
-//                        .foregroundColor(.white)
-//                        .padding(.all, 10)
-//                        .background(Color.pink)
-//                        .cornerRadius(10)
-//                }
+                
+                Button(action: {
+                    changeTrayRotationDirection()
+                }) 
+                { Text(isRotatingClockwise ? "Rotate Counterclockwise" : "Rotate Clockwise")
+                        .font(.system(size: 25))
+                        .frame(width: 300)
+                        .foregroundColor(.white)
+                        .padding(.vertical, 12)
+                        .background(Color(red: 0.5, green: 0.3, blue: 0))
+                        .cornerRadius(10)
+                }
+                 .disabled(!showGameComponents)
+                
                 Spacer()
             }
+            
+            
+            if !showGameComponents {
+                ZStack{
+                    Image("colorCatchInstructions")
+                        .resizable()
+                        .frame(width: 670, height: 1000)
+                    
+                    VStack {
+                        Spacer()
+                            .frame(height: 700)
+                        Button(action: {
+                            withAnimation(.linear(duration: 0.4)) {
+                                instructionsPaneOffset = UIScreen.main.bounds.height 
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                showGameComponents = true
+                                restartGame() 
+                            }
+                        }, label: {
+                            Text("Let's go!")
+                                .font(.system(size: 30))
+                                .foregroundStyle(Color.white)
+                                .frame(width: 150)
+                                .padding(.all, 10)
+                                .background(Color(red: 0.65, green: 0.35, blue: 0))
+                                .cornerRadius(10)
+                        })
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.white, lineWidth: 2)
+                                .foregroundColor(.clear)
+                        )
+                    }
+                }
+                .offset(y: instructionsPaneOffset)
+                .onAppear{
+                    withAnimation(.linear(duration: 0.4)) {
+                        instructionsPaneOffset = 0
+                    }
+                }
+            }
+            
         }
+    }
+    
+    func initiateCoinScheduling() {
+        withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+            self.coinRotation = 360
+        }
+        
+        withAnimation(.linear(duration: coinFallDuration).repeatForever(autoreverses: false)) {
+            self.coinYOffset = fallDistance
+        }
+        
+        self.coinScheduler = Timer.scheduledTimer(withTimeInterval: coinFallDuration, repeats: true) { _ in
+            let isCorrectColorCaught = self.checkIfScored(self.currentCoinColor)
+            
+            //change score based on color catch
+            if isCorrectColorCaught {
+                self.gameScore += 1
+                withAnimation(.linear(duration: 0.2)) {
+                    self.scoreIndicatorColor = Color(red: 0, green: 0.5, blue: 0)
+                }
+            } else {
+                self.gameScore -= 1
+                withAnimation(.linear(duration: 0.2)) {
+                    self.scoreIndicatorColor = Color(red: 1, green: 0, blue: 0)
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1){
+                withAnimation(.easeIn(duration: 0.2)) {
+                    self.scoreIndicatorColor = Color.black
+                }
+            }
+            
+            withAnimation(.easeIn(duration: 0.3)) {
+                self.currentCoinColor = self.colorArray.randomElement()!
+            }
+            
+        }
+    }
+    
+    func changeTrayRotationDirection() {
+        self.stopRecordingRotationAngle()
+        withAnimation(.linear(duration: 0)) {
+            self.updatedRotationAngle = self.currentRotationAngle
+        }
+        
+        let fullAngle: CGFloat
+        if self.isRotatingClockwise {
+            fullAngle = self.updatedRotationAngle - 360
+        } else {
+            fullAngle = self.updatedRotationAngle + 360
+        }
+        
+        withAnimation(.linear(duration: rotationDuration).repeatForever(autoreverses: false)) {
+            self.updatedRotationAngle = fullAngle
+        }
+        self.isRotatingClockwise.toggle()
+        self.recordRotationAngle(self.isRotatingClockwise)
     }
     
     //keeps a record of the angle in rotation through a timer
@@ -264,6 +316,27 @@ struct ColorCatchView: View {
             return true
         } else {
             return false
+        }
+    }
+    
+    func restartGame() {
+        withAnimation(.linear(duration: 0)) {
+            coinRotation = 0
+            coinYOffset = 0
+            updatedRotationAngle = 0
+            gameScore = 0
+        }
+        
+        scoreIndicatorColor = Color.black
+        isRotatingClockwise = true
+        coinScheduler?.invalidate()
+        coinScheduler = nil
+        currentRotationAngle = 0
+        initiateCoinScheduling()
+        stopRecordingRotationAngle()
+        recordRotationAngle(isRotatingClockwise)
+        withAnimation(.linear(duration: rotationDuration).repeatForever(autoreverses: false)) {
+            updatedRotationAngle = 360
         }
     }
 }

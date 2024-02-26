@@ -3,22 +3,29 @@ import SwiftUI
 
 class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     private var gameFloor: SKSpriteNode!
-    private var moverNode: SKShapeNode!
+    private var moverNode: SKSpriteNode!
     private var signboardNode: SKSpriteNode!
     private var airBalloonNode: SKSpriteNode!
     private var scoreCounter: SKLabelNode!
     private var screenSize: CGSize!
     private var endGameBackground: SKShapeNode!
     private var restartButton: SKShapeNode!
+    private var contractActionButton: SKShapeNode!
+    private var jumpActionButton: SKShapeNode!
+    private var instructionPaneNode: SKSpriteNode!
     
+    private var moverRunImages = ["moverRun1", "moverRun2"]
+    private var moverImageIndex = 1 
+    private var storedMoverImageTime: Double = 0
     private var gameSpeed: CGFloat = 10
-    private var speedIncrementPoint: Int = 100
+    private var speedIncrementPoint: Int = 50
     private var playerScore: Int = 0
     private var scoreIncrementInterval: Double = 0.5
     private var storedCurrentScoreTime: Double = 0
-    private var storedCurrentSpawnTime: Double = 0
+    private var storedCurrentObstacleTime: Double = 0
     private var obstacleInterval: Double = 1
     private var actionInProgress: Bool = false
+    private var hasCrashed: Bool = false
     
     private let floorCategoryMask: UInt32 = 0b0001
     private let moverCategoryMask: UInt32 = 0b0010
@@ -48,8 +55,11 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         self.createMover()
         self.createScoreCounter()
         self.showEndGameMessage() 
+        self.addShowInstructionsButton()
+        self.showInstructions()
         
-        addActionButtons()
+        self.jumpActionButton = addActionButtons(buttonText: "Jump", buttonPosition: CGPoint(x: 100, y: 60))
+        self.contractActionButton = addActionButtons(buttonText: "Contract", buttonPosition: CGPoint(x: self.frame.width-110, y: 60))
     }
 
     override func update(_ currentTime: CFTimeInterval) {
@@ -65,6 +75,12 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
                 self.restartButton.position.y = self.endGameBackground.position.y - 100
             }
             
+            if (currentTime - storedMoverImageTime) >= 0.1 {
+                moverImageIndex = (moverImageIndex + 1) % moverRunImages.count
+                moverNode.texture = SKTexture(imageNamed: moverRunImages[moverImageIndex])
+                storedMoverImageTime = currentTime
+            }
+            
             //perform action based on detected hand pose
             if DodgeObsScene.detectedHandPose == "open_palm" {
                 jumpMover()
@@ -73,11 +89,11 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
             }
             DodgeObsScene.detectedHandPose = ""
             
-            //increase speed every after every +100 score 
+            //increase speed every after every +50 score 
             if (speedIncrementPoint - playerScore) <= 0 && scoreIncrementInterval > 0 {
                 gameSpeed += 2
                 scoreIncrementInterval -= 0.1
-                speedIncrementPoint += 100
+                speedIncrementPoint += 50
             }
             
             //increment score every 0.5 seconds
@@ -87,7 +103,8 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
                 storedCurrentScoreTime = currentTime
             }
             
-            if (currentTime - storedCurrentSpawnTime) >= obstacleInterval {
+            //randomly create obstacles
+            if (currentTime - storedCurrentObstacleTime) >= obstacleInterval {
                 obstacleInterval = (Double.random(in: 2.5...3.6) * 10).rounded(.down) / 10 //randomising interval between obstacles
                 
                 if (Int.random(in: 1...10) < 6) {
@@ -97,7 +114,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
                     createAirObstacle()
                 }
                 
-                storedCurrentSpawnTime = currentTime
+                storedCurrentObstacleTime = currentTime
             }
         }
     }
@@ -108,10 +125,24 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
             let tappedNode = atPoint(tappedLocation)
             if tappedNode.name == "restart" {
                 restartGame()
-            } else if tappedNode.name == "jump" {
-                jumpMover()
-            } else if tappedNode.name == "duck" {
-                contractMover()
+                hasCrashed = false
+            } else if tappedNode.name == "insButton" && instructionPaneNode?.parent == nil {
+                showInstructions()
+            }
+            
+            if gameSpeed > 0 {
+                if tappedNode.name == jumpActionButton.name {
+                    jumpMover()
+                } else if tappedNode.name == contractActionButton.name {
+                    contractMover()
+                }
+            }
+            
+            let allTappedNodes = nodes(at: tappedLocation)
+            for tapNode in allTappedNodes {
+                if tapNode.name == "insDismiss" {
+                    dismissInstructions()
+                }
             }
         }
     }
@@ -119,7 +150,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     func didBegin(_ physicalContact: SKPhysicsContact) {
         if (physicalContact.bodyA.categoryBitMask == signboardCategoryMask) || (physicalContact.bodyB.categoryBitMask == signboardCategoryMask) || (physicalContact.bodyA.categoryBitMask == airBalloonCategoryMask) || (physicalContact.bodyB.categoryBitMask == airBalloonCategoryMask) {
             gameSpeed = 0
-            
+            hasCrashed = true
             for obstacleNode in self.children {
                 if obstacleNode.name == "signboard" || obstacleNode.name == "air_balloon" {
                     obstacleNode.removeAllActions()
@@ -128,7 +159,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     
-    func restartGame() {
+    private func restartGame() {
         gameFloor.removeAllChildren()
         moverNode.removeAllActions()
         moverNode.removeFromParent()
@@ -143,16 +174,81 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         storedCurrentScoreTime = 0
         playerScore = 0
         scoreCounter.text = "Score: 0"
-        storedCurrentSpawnTime = 0
+        storedCurrentObstacleTime = 0
         scoreIncrementInterval = 0.5
         speedIncrementPoint = 100
         actionInProgress = false
         gameSpeed = 10
-        
-        //TODO: remove this line:
-        addActionButtons()
     }
- 
+    
+    
+    private func showInstructions() {
+        self.instructionPaneNode = SKSpriteNode(imageNamed: "dodgeObsInstructions") 
+        instructionPaneNode.size = CGSize(width: 630, height: 850)
+        instructionPaneNode.position = CGPoint(x: self.frame.width/2, y: -self.frame.height/2)
+        instructionPaneNode.zPosition = .greatestFiniteMagnitude
+        
+        let goButtonText = SKLabelNode(fontNamed: "")
+        goButtonText.fontSize = 30
+        goButtonText.text = "Let's go!"
+        goButtonText.fontColor = .white
+        goButtonText.position = CGPoint(x: 0, y: -instructionPaneNode.size.height/2 + 70)
+        
+        let goButtonSize = CGSize(width: goButtonText.frame.width + 60, height: goButtonText.frame.height + 20)
+        let goButton = SKShapeNode(rectOf: goButtonSize, cornerRadius: 10)
+        goButton.name = "insDismiss"
+        goButton.fillColor = UIColor(red: 0.65, green: 0.35, blue: 0, alpha: 1)
+        goButton.lineWidth = 2
+        goButton.position = CGPoint(x: goButtonText.position.x, y: goButtonText.position.y + 10)
+
+        self.addChild(instructionPaneNode)
+        instructionPaneNode.addChild(goButton)
+        instructionPaneNode.addChild(goButtonText)
+        
+        let appearAction = SKAction.moveBy(x: 0, y: self.frame.size.height, duration: 0.3)
+        instructionPaneNode.run(appearAction)
+        
+        //handle stoppinh of game by setting gameSpeed to 0 
+        gameSpeed = 0 
+        
+        for obstacleNode in self.children {
+            if obstacleNode.name == "signboard" || obstacleNode.name == "air_balloon" {
+                obstacleNode.removeAllActions()
+            }
+        } 
+        
+        if !hasCrashed {
+            endGameBackground.position.y = (self.scene?.size.height)! * 3
+            restartButton.position.y = (self.scene?.size.height)! * 3
+        } else {
+            hasCrashed = false
+        }
+    }
+    
+    private func addShowInstructionsButton() {
+        let imageConfig = UIImage.SymbolConfiguration(textStyle: .largeTitle)
+        let insButtonImage = UIImage(systemName: "questionmark.circle.fill", withConfiguration: imageConfig)
+        let insButtonTexture = SKTexture(image: insButtonImage!)
+        let insButtonNode = SKSpriteNode(texture: insButtonTexture)
+        
+        insButtonNode.size = CGSize(width: 50, height: 50)
+        insButtonNode.position = CGPoint(x: self.frame.width - 50, y: self.frame.height - 80)
+        insButtonNode.name = "insButton"
+        
+        self.addChild(insButtonNode)
+    }
+    
+    private func dismissInstructions() {
+        let disappearAction = SKAction.moveBy(x: 0, y: -self.frame.height, duration: 0.3)
+        let disappearSequence = SKAction.sequence([disappearAction, SKAction.removeFromParent()])
+        
+        instructionPaneNode.run(disappearSequence)
+        
+        //restart game when user views instructions to give a fresh start
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.restartGame()
+        }
+    }
     
     private func createGameFloor() {
         //placing 3 nodes side by side
@@ -182,17 +278,16 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func createMover() {
-        self.moverNode = SKShapeNode(rectOf: CGSize(width: 80, height: 350), cornerRadius: 30)
-        moverNode.fillColor = .purple
-        moverNode.strokeColor = .black
-        moverNode.lineWidth = 5
+        let moverTexture = SKTexture(imageNamed: moverRunImages[0])
+        self.moverNode = SKSpriteNode(texture: moverTexture)
+        
+        moverNode.size = CGSize(width: 80, height: 350)
         
         let xPos = 2*(moverNode.frame.size.width)
         let yPos = (gameFloor.position.y) + (moverNode.frame.size.height)/2   //on top of floor
         moverNode.position = CGPoint(x: xPos, y: yPos)
         
-        let moverTexture = SKView().texture(from: moverNode)
-        moverNode.physicsBody = SKPhysicsBody(texture: moverTexture!, size: moverTexture!.size())
+        moverNode.physicsBody = SKPhysicsBody(texture: moverTexture, size: moverTexture.size())
         moverNode.physicsBody?.usesPreciseCollisionDetection = true 
         moverNode.physicsBody?.allowsRotation = false
         
@@ -207,14 +302,13 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     private func createLandObstacle() {
         
         DispatchQueue.global().async { [self] in 
-            let signboardImage = UIImage(named: "signboard")
-            let signboardNodeTexture = SKTexture(image: signboardImage!)
+            let signboardNodeTexture = SKTexture(imageNamed: "signboard")
             self.signboardNode = SKSpriteNode(texture: signboardNodeTexture)
             signboardNode.name = "signboard"
             
             signboardNode.size = CGSize(width: 150, height: 170)
             let initialX = gameFloor.size.width + (2 * signboardNode.size.width)
-            let yPos = gameFloor.size.height + 45
+            let yPos = gameFloor.size.height + signboardNode.size.height/2
             let offScreenDistance = -initialX - (2 * signboardNode.size.width)
             let offScreenDuration = -offScreenDistance / (gameSpeed * 60)  //multiply speed*60 because 60FPS
             
@@ -223,8 +317,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
             
             signboardNode.physicsBody = SKPhysicsBody(texture: signboardNodeTexture, size: signboardNode.size)
             signboardNode.physicsBody?.usesPreciseCollisionDetection = true
-            signboardNode.physicsBody?.affectedByGravity = false
-            signboardNode.physicsBody?.allowsRotation = false 
+            signboardNode.physicsBody?.isDynamic = false
             
             signboardNode.physicsBody?.categoryBitMask = signboardCategoryMask
             signboardNode.physicsBody?.collisionBitMask = floorCategoryMask
@@ -238,8 +331,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     private func createAirObstacle() {
         
         DispatchQueue.global().async { [self] in 
-            let airBalloonImage = UIImage(named: "hotAirBalloon")
-            let airBalloonTexture = SKTexture(image: airBalloonImage!)
+            let airBalloonTexture = SKTexture(imageNamed: "hotAirBalloon")
             self.airBalloonNode = SKSpriteNode(texture: airBalloonTexture)
             airBalloonNode.name = "air_balloon"
             
@@ -254,8 +346,8 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
             
             airBalloonNode.physicsBody = SKPhysicsBody(texture: airBalloonTexture, size: airBalloonNode.size)
             airBalloonNode.physicsBody?.usesPreciseCollisionDetection = true
-            airBalloonNode.physicsBody?.affectedByGravity = false
-            airBalloonNode.physicsBody?.allowsRotation = false 
+            airBalloonNode.physicsBody?.isDynamic = false
+            
             
             airBalloonNode.physicsBody?.categoryBitMask = airBalloonCategoryMask
             airBalloonNode.physicsBody?.collisionBitMask = floorCategoryMask
@@ -320,10 +412,9 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         self.endGameBackground = SKShapeNode(rectOf: endGameBackgroundSize, cornerRadius: 5)
         endGameBackground.fillColor = .darkGray
         endGameBackground.lineWidth = 0
-        endGameBackground.position = CGPoint(x: (self.scene?.size.width)!/2, y: (self.scene?.size.height)!/2)
+        endGameBackground.position = CGPoint(x: (self.scene?.size.width)!/2, y: (self.scene?.size.height)! * 3)
         endGameBackground.zPosition = .greatestFiniteMagnitude
     
-        
         //restart button
         let restartButtonText = SKLabelNode(fontNamed: "Arial")
         restartButtonText.fontSize = 30
@@ -338,7 +429,7 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
         restartButton.fillColor = .darkGray
         restartButton.strokeColor = .black
         restartButton.lineWidth = 4
-        restartButton.position = CGPoint(x: endGameBackground.position.x, y: endGameBackground.position.y - 100)
+        restartButton.position = CGPoint(x: endGameBackground.position.x, y: (self.scene?.size.height)! * 3)
         restartButton.zPosition = .greatestFiniteMagnitude
         
         restartButton.addChild(restartButtonText)
@@ -349,42 +440,26 @@ class DodgeObsScene: SKScene, SKPhysicsContactDelegate {
     
     
     
-    private func addActionButtons() {
-        let jumpText = SKLabelNode(fontNamed: "")
-        jumpText.fontSize = 30
-        jumpText.text = "Jump"
-        jumpText.fontColor = .white
-        jumpText.position = CGPoint(x: 100, y: 50)
-        jumpText.zPosition = .greatestFiniteMagnitude
+    private func addActionButtons(buttonText: String, buttonPosition: CGPoint) -> SKShapeNode {
+        let actionText = SKLabelNode(fontNamed: "")
+        actionText.fontSize = 26
+        actionText.text = buttonText
+        actionText.fontColor = .white
+        actionText.position = buttonPosition
+        actionText.zPosition = .greatestFiniteMagnitude
+
+        let actionButtonSize = CGSize(width: actionText.frame.width + 50, height: actionText.frame.height + 20)
+        let actionButton = SKShapeNode(rectOf: actionButtonSize, cornerRadius: 10)
+        actionButton.name = buttonText
+        actionButton.fillColor = UIColor(red: 0.7, green: 0.4, blue: 0, alpha: 1)
+        actionButton.lineWidth = 0
+        actionButton.position = CGPoint(x: actionText.position.x, y: actionText.position.y + 10)
+        actionButton.zPosition = .greatestFiniteMagnitude - 1
         
-        let jumpButtonSize = CGSize(width: jumpText.frame.width + 50, height: jumpText.frame.height + 30)
-        let jumpButton = SKShapeNode(rectOf: jumpButtonSize, cornerRadius: 5)
-        jumpButton.name = "jump"
-        jumpButton.fillColor = .orange
-        jumpButton.lineWidth = 3
-        jumpButton.position = CGPoint(x: jumpText.position.x, y: jumpText.position.y + 10)
-        jumpButton.zPosition = .greatestFiniteMagnitude - 1
-        
-        
-        let duckText = SKLabelNode(fontNamed: "")
-        duckText.fontSize = 30
-        duckText.text = "Duck"
-        duckText.fontColor = .white
-        duckText.position = CGPoint(x: 300, y: 50)
-        duckText.zPosition = .greatestFiniteMagnitude
-        
-        let duckButtonSize = CGSize(width: duckText.frame.width + 50, height: duckText.frame.height + 30)
-        let duckButton = SKShapeNode(rectOf: duckButtonSize, cornerRadius: 5)
-        duckButton.name = "duck"
-        duckButton.fillColor = .blue
-        duckButton.lineWidth = 3
-        duckButton.position = CGPoint(x: duckText.position.x, y: duckText.position.y + 10)
-        duckButton.zPosition = .greatestFiniteMagnitude - 1
-        
-        self.addChild(jumpButton)
-        self.addChild(jumpText)
-        self.addChild(duckButton)
-        self.addChild(duckText)
+        self.addChild(actionButton)
+        self.addChild(actionText)
+
+        return actionButton
     }
 }
 
